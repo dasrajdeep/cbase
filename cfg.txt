@@ -1,0 +1,17 @@
+S -> A S | nil
+
+A -> printf("F", PfxV); | scanf("F", PfxV);
+Pfx -> * | & | nil
+F -> %Spec
+Spec -> d | f | c | b
+
+A -> if(E) { A }
+A -> if(E) { A } else { A }
+
+E -> Const | V
+E -> E Op E
+Op -> + | - | * | / | < | > | == | <= | >=
+
+A -> T V = E;
+A -> V = E;
+T -> int | float | char | bool
