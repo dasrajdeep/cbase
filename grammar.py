@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+import random
 from random import randint
 
 class Grammar:
@@ -8,6 +9,8 @@ class Grammar:
     def __init__(self):
         self.S = 'S'
         self.MAX_ITERS = 100
+        self.PROB_DECAY = 2
+        self.PROB_DEFAULT = 5
         self.g = {}
         self.symbols = {}
         self.source = None
@@ -18,7 +21,8 @@ class Grammar:
 
     def __getitem__(self, key):
         if key == 'Const':
-            return [{ 'prod': str(randint(0, 100)), 'id': 0 }]
+            # HACK
+            return [{ 'prod': str(randint(0, 100)), 'id': 0,'prod_dist': self.PROB_DEFAULT }]
         elif key == 'Vi':
             return self.get_varname('int')
         elif key == 'Vf':
@@ -34,13 +38,15 @@ class Grammar:
     def get_varname(self, type):
         varname = "var%d" % (len(self.symbols.keys()) + 1)
         self.symbols[varname] = type
-        return [{ 'prod': varname, 'id': 0 }]
+        # HACK
+        return [{ 'prod': varname, 'id': 0 ,'prod_dist': self.PROB_DEFAULT }]
 
     def lookup_varname(self):
         syms = self.symbols.keys()
         if len(syms) == 0:
             raise Exception('Not enough variables declared')
-        return [{ 'prod': syms[randint(0, len(syms) - 1)], 'id': 0 }]
+        # HACK
+        return [{ 'prod': syms[randint(0, len(syms) - 1)], 'id': 0 ,'prod_dist': self.PROB_DEFAULT }]
 
     def parse(self):
         if self.source is None:
@@ -49,20 +55,54 @@ class Grammar:
         for line in lines:
             if line.strip() == '':
                 continue
-            head = line.split('#')
-            id = int(head[1])
+            #head = line.split('#')
+            # Use this for multiple delimiters
+            head = re.split('#|@',line)
+            print head
+            #exit(0)
+            
+
+            # If it is >2 then we are doing probability productions
+            if(len(head) > 2):
+                # Grab the concept ID here
+                id = int(head[1])
+
+                # Grab the production distrubtion here
+                prod_dist = int(head[2])
+            else:
+                # Grab the concept ID here
+                id = int(head[1])
+
+                # Set production distrubtion to default
+                prod_dist = self.PROB_DEFAULT
+
             tok = head[0].split('->')
             nterm = tok[0].strip()
             if nterm not in self.g:
                 self.g[nterm] = []
             prods = tok[1].split('|')
             for p in prods:
+                print prods
+
+
+                ##print p
+                w = p.split('?')
+                print len(w)
+                ## This means we have a production specific weight
+                if(len(w) > 1):
+                    # The production weight
+                    prod_dist = int(w[1])
+                    p = w[0]
+
+
                 vars = re.findall("[A-Z][a-z]*", p)
                 sanitized = p
                 vars = list(set(vars))
                 for v in vars:
                     sanitized = sanitized.replace(v, "<%s>" % v)
-                self.g[nterm].append({ 'prod': sanitized.strip(), 'id': id })
+                self.g[nterm].append({ 'prod': sanitized.strip(), 'id': id, 'prod_dist': prod_dist })
+                print self.g[nterm]
+            #exit(0)
 
     def get_vars(self, snippet):
         vars = re.findall("<[A-Z][a-z]*>", snippet)
@@ -78,6 +118,8 @@ class Grammar:
         while iter < self.MAX_ITERS:
             iter = iter + 1
             nterm = self.get_vars(code)
+            print "nterm is"
+            print nterm
             if len(nterm) == 0:
                 break
             nterm = nterm[0]
@@ -86,11 +128,62 @@ class Grammar:
             #print prod
             if prod is None:
                 raise Exception("Grammar is incomplete. '%s' has no production." % nterm)
-            prod = prod[ randint(0, len(prod) - 1) ]
+            print prod
+
+#########Weight Selection#####################################
+            freq_list = []
+            total_weight = 0
+
+            for prod_index in range(0,len(prod)):
+                if prod[prod_index]['prod_dist'] <= 0:
+                    continue
+                for i in range(0,prod[prod_index]['prod_dist']):
+                    freq_list.append(prod_index)
+           
+            print "prod_dist->" 
+            print prod[prod_index]['prod_dist'] 
+            print "freq_list->" 
+            print freq_list
+            #prod_index = randint(0,len(freq_list) - 1)
+
+
+            #for i in range(0,len(prod)):
+            #    freq_list.append(
+            #    total_weight = total_weight + prod[i]["prod_dist"]
+            #for i in range(0,total_weight):
+            #    freq_list.append(
+
+                #if (prod[i]["prod_dist"] > max_val):
+                #    prod_select = i
+                #    max_val = prod[i]["prod_dist"]
+            
+
+#            prod_select = -1
+#            max_val = -1
+#            for i in range(0,len(prod)):
+#                if (prod[i]["prod_dist"] > max_val):
+#                    prod_select = i
+#                    max_val = prod[i]["prod_dist"]
+#
+#            if max_val < 0:
+#                continue
+
+##############################################
+            rand_int = randint(0, len(freq_list) - 1)
+            print rand_int
+
+            prod_index = freq_list[rand_int]
+            print "Prod index is -> "
+            print prod_index
+
+            #prod = prod[ randint(0, len(prod) - 1) ]
+            prod = prod[prod_index]
+
             if prod['id'] in concepts and not concepts[prod['id']]:
                 continue
             code = code.replace("<%s>" % nterm, prod['prod'], 1)
-            #print code
+            print "code is"
+            print code
         code = code.replace('nil', '')
         return code
 
@@ -140,7 +233,7 @@ class Grammar:
             out.write("\n".join(["#include <stdio.h>", "", self.wrap_code(code)]))
             out.close()
             try:
-                result = subprocess.check_output(['/opt/local/bin/uncrustify', '-c', "%s/ben.cfg.txt" % os.getcwd(), '-f', "%s/code.c" % os.getcwd()])
+                result = subprocess.check_output(['/usr/bin/uncrustify', '-c', "%s/ben.cfg.txt" % os.getcwd(), '-f', "%s/code.c" % os.getcwd()])
                 return result
             except Exception as e:
                 print e
@@ -153,7 +246,7 @@ g = Grammar()
 concepts = {
     1: True, 
     2: False, 
-    3: False, 
+    3: True, 
     4: True
 }
 
