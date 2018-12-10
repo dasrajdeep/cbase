@@ -1,5 +1,6 @@
 import os
 import re
+import subprocess
 from random import randint
 
 class Grammar:
@@ -93,6 +94,22 @@ class Grammar:
         code = code.replace('nil', '')
         return code
 
+    def wrap_code(self, code):
+        source = "int main() { %s return 0; }" % code
+        return source
+
+    def compile(self, code):
+        with open('./code.c', 'w') as out:
+            out.write("\n".join(["#include <stdio.h>", "", code]))
+            out.close()
+            try:
+                result = subprocess.check_output(['gcc', 'code.c'], stderr=subprocess.STDOUT)
+                if result.strip() == '':
+                    return True
+            except:
+                return False
+        return False
+
 # TEST CODE
 
 g = Grammar()
@@ -108,7 +125,9 @@ while True:
         code = g.generate(concepts).strip()
         whole = len(g.get_vars(code)) == 0
         if code != '' and whole:
-            print code
-            break
+            compiles = g.compile(g.wrap_code(code))
+            if compiles:
+                print code
+                break
     except Exception as e:
         print e
