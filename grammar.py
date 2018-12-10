@@ -94,6 +94,31 @@ class Grammar:
         code = code.replace('nil', '')
         return code
 
+    def add_blanks(self, code, concepts, max_blanks):
+        ctoks = re.findall("[a-z%;]+", code)
+        ctokmap = {}
+        for tok in ctoks:
+            ctokmap[tok] = True
+        count = 0
+        for i in range(0, max_blanks):
+            if randint(0, 100) % 5 == 0:
+                for s in self.symbols:
+                    code = code.replace(s, ' _FILL_ ', 1)
+                    count = count + 1
+                    if count >= max_blanks:
+                        return code
+        for nterm in self.g:
+            for prod in self.g[nterm]:
+                if prod['id'] in concepts and concepts[prod['id']]:
+                    toks = re.findall("[a-z%;]+", prod['prod'])
+                    for tok in toks:
+                        if tok in ctokmap:
+                            code = code.replace(tok, ' _FILL_ ', 1)
+                            count = count + 1
+                            if count >= max_blanks:
+                                return code
+        return code
+
     def wrap_code(self, code):
         source = "int main() { %s return 0; }" % code
         return source
@@ -132,6 +157,7 @@ concepts = {
     4: True
 }
 
+source = None
 while True:
     try:
         code = g.generate(concepts).strip()
@@ -139,7 +165,11 @@ while True:
         if code != '' and whole:
             compiles = g.compile(g.wrap_code(code))
             if compiles:
-                print g.prettify(code.replace(';', ";\n"))
+                source = g.prettify(code.replace(';', ";\n"))
+                print source
                 break
     except Exception as e:
-        pass
+        print e
+
+problem = g.add_blanks(source, concepts, 10)
+print problem
