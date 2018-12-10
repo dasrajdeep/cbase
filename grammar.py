@@ -84,11 +84,11 @@ class Grammar:
             prod = self.__getitem__(nterm)
             #print prod
             if prod is None:
-                raise Exception("Grammar is incomplete. '%s' has no production" % nterm)
+                raise Exception("Grammar is incomplete. '%s' has no production." % nterm)
             prod = prod[ randint(0, len(prod) - 1) ]
             if prod['id'] in concepts and not concepts[prod['id']]:
                 continue
-            code = code.replace("<%s>" % nterm, prod['prod'])
+            code = code.replace("<%s>" % nterm, prod['prod'], 1)
             #print code
         code = code.replace('nil', '')
         return code
@@ -96,12 +96,18 @@ class Grammar:
 # TEST CODE
 
 g = Grammar()
-concepts = {1: True, 2: True, 3: True, 4: True, 5: True}
+concepts = {
+    1: True, 
+    2: False, 
+    3: False, 
+    4: True
+}
 
 while True:
     try:
-        code = g.generate(concepts)
-        if code.strip() != '':
+        code = g.generate(concepts).strip()
+        whole = len(g.get_vars(code)) == 0
+        if code != '' and whole:
             print code
             break
     except Exception as e:

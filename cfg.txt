@@ -11,8 +11,12 @@ Spec -> d | f | c | b #2
 A -> if(E) { A } #3
 A -> if(E) { A } else { A } #3
 
+A -> for(B E; E) { A } #4
+A -> while(E) { A } #4
+
 E -> Const | U #1
 E -> (E Op E) #1
 Op -> + | - | * | / | < | > | == | <= | >= #1
 
-A -> U = E; #5
+A -> B #5
+B -> U = E; #5
