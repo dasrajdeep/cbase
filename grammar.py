@@ -16,9 +16,9 @@ class Grammar:
 
     def __getitem__(self, key):
         if key == 'Const':
-            return [str(randint(0, 100))]
+            return [{ 'prod': str(randint(0, 100)), 'id': 0 }]
         elif key == 'V':
-            return ['var']
+            return [{ 'prod': 'var', 'id': 0 }]
         elif key in self.g:
             return self.g[key]
         return None
@@ -30,7 +30,9 @@ class Grammar:
         for line in lines:
             if line.strip() == '':
                 continue
-            tok = line.split('->')
+            head = line.split('#')
+            id = int(head[1])
+            tok = head[0].split('->')
             nterm = tok[0].strip()
             if nterm not in self.g:
                 self.g[nterm] = []
@@ -41,7 +43,7 @@ class Grammar:
                 vars = list(set(vars))
                 for v in vars:
                     sanitized = sanitized.replace(v, "<%s>" % v)
-                self.g[nterm].append(sanitized.strip())
+                self.g[nterm].append({ 'prod': sanitized.strip(), 'id': id })
 
     def get_vars(self, snippet):
         vars = re.findall("<[A-Z][a-z]*>", snippet)
@@ -50,7 +52,7 @@ class Grammar:
             vars[i] = vars[i].replace('>', '')
         return vars
 
-    def generate(self):
+    def generate(self, concepts):
         code = "<%s>" % self.S
         iter = 0
         while iter < self.MAX_ITERS:
@@ -65,7 +67,9 @@ class Grammar:
             if prod is None:
                 raise Exception('Grammar is incomplete.')
             prod = prod[ randint(0, len(prod) - 1) ]
-            code = code.replace("<%s>" % nterm, prod)
+            if prod['id'] in concepts and not concepts[prod['id']]:
+                continue
+            code = code.replace("<%s>" % nterm, prod['prod'])
             #print code
         code = code.replace('nil', '')
         return code
@@ -73,4 +77,4 @@ class Grammar:
 # TEST CODE
 
 g = Grammar()
-print g.generate()
+print g.generate({1: True, 2: False, 3: True, 4: False, 5: False})
