@@ -8,6 +8,7 @@ class Grammar:
         self.S = 'S'
         self.MAX_ITERS = 100
         self.g = {}
+        self.symbols = {}
         self.source = None
         with open('cfg.txt') as f:
             self.source = f.read()
@@ -17,11 +18,28 @@ class Grammar:
     def __getitem__(self, key):
         if key == 'Const':
             return [{ 'prod': str(randint(0, 100)), 'id': 0 }]
-        elif key == 'V':
-            return [{ 'prod': 'var', 'id': 0 }]
+        elif key == 'Vi':
+            return self.get_varname('int')
+        elif key == 'Vf':
+            return self.get_varname('float')
+        elif key == 'Vc':
+            return self.get_varname('char')
+        elif key == 'U':
+            return self.lookup_varname()
         elif key in self.g:
             return self.g[key]
         return None
+
+    def get_varname(self, type):
+        varname = "var%d" % (len(self.symbols.keys()) + 1)
+        self.symbols[varname] = type
+        return [{ 'prod': varname, 'id': 0 }]
+
+    def lookup_varname(self):
+        syms = self.symbols.keys()
+        if len(syms) == 0:
+            raise Exception('Not enough variables declared')
+        return [{ 'prod': syms[randint(0, len(syms) - 1)], 'id': 0 }]
 
     def parse(self):
         if self.source is None:
@@ -53,19 +71,20 @@ class Grammar:
         return vars
 
     def generate(self, concepts):
+        self.symbols = {}
         code = "<%s>" % self.S
         iter = 0
         while iter < self.MAX_ITERS:
             iter = iter + 1
             nterm = self.get_vars(code)
-            #print nterm
             if len(nterm) == 0:
                 break
             nterm = nterm[0]
+            #print "nterm:", nterm
             prod = self.__getitem__(nterm)
             #print prod
             if prod is None:
-                raise Exception('Grammar is incomplete.')
+                raise Exception("Grammar is incomplete. '%s' has no production" % nterm)
             prod = prod[ randint(0, len(prod) - 1) ]
             if prod['id'] in concepts and not concepts[prod['id']]:
                 continue
@@ -77,4 +96,13 @@ class Grammar:
 # TEST CODE
 
 g = Grammar()
-print g.generate({1: True, 2: False, 3: True, 4: False, 5: False})
+concepts = {1: True, 2: True, 3: True, 4: True, 5: True}
+
+while True:
+    try:
+        code = g.generate(concepts)
+        if code.strip() != '':
+            print code
+            break
+    except Exception as e:
+        print e

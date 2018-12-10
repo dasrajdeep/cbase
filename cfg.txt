@@ -1,17 +1,18 @@
-S -> A S | nil #0
+S -> D S | R | nil #0
+R -> A R | nil #0
+D -> int Vi = Const; #5
+D -> float Vf = Const; #5
+D -> char Vc = Const; #5
 
-A -> printf("F", PfxV); | scanf("F", PfxV); #2
-Pfx -> * | & | nil #2
+A -> printf("F", U); | scanf("F", &U); #2
 F -> %Spec #2
 Spec -> d | f | c | b #2
 
 A -> if(E) { A } #3
 A -> if(E) { A } else { A } #3
 
-E -> Const | V #1
-E -> E Op E #1
+E -> Const | U #1
+E -> (E Op E) #1
 Op -> + | - | * | / | < | > | == | <= | >= #1
 
-A -> T V = E; #5
-A -> V = E; #5
-T -> int | float | char | bool #5
+A -> U = E; #5
