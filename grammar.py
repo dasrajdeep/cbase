@@ -263,37 +263,14 @@ class Grammar:
         source = None
         while True:
             try:
-                code = g.generate(concepts).strip()
-                whole = len(g.get_vars(code)) == 0
+                code = self.generate(concepts).strip()
+                whole = len(self.get_vars(code)) == 0
                 if code != '' and whole:
-                    compiles = g.compile(g.wrap_code(code))
+                    compiles = self.compile(self.wrap_code(code))
                     if compiles:
-                        source = g.prettify(code.replace(';', ";\n"))
+                        source = self.prettify(code.replace(';', ";\n"))
                         break
             except:
                 pass
-        problem = g.add_blanks(source, concepts)
+        problem = self.add_blanks(source, concepts)
         return { 'code': source, 'problem': problem }
-
-# TEST CODE
-
-g = Grammar()
-concepts = {
-    1: True, 
-    2: False, 
-    3: True, 
-    4: True
-}
-
-def save_code(filename, code):
-    with open(filename, 'w') as out:
-        out.write(code)
-        out.close()
-
-result = g.generate_problem(concepts)
-print "[ORIGINAL]"
-print result['code']
-save_code('code-prettified.c', result['code'])
-print "[WITH_BLANKS]"
-print result['problem']
-save_code('code-blanks.c', result['problem'])
