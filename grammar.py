@@ -110,6 +110,18 @@ class Grammar:
                 return False
         return False
 
+    def prettify(self, code):
+        with open('./code.c', 'w') as out:
+            out.write("\n".join(["#include <stdio.h>", "", self.wrap_code(code)]))
+            out.close()
+            try:
+                result = subprocess.check_output(['/opt/local/bin/uncrustify', '-c', "%s/ben.cfg.txt" % os.getcwd(), '-f', "%s/code.c" % os.getcwd()])
+                return result
+            except Exception as e:
+                print e
+                return None
+        return None
+
 # TEST CODE
 
 g = Grammar()
@@ -127,7 +139,7 @@ while True:
         if code != '' and whole:
             compiles = g.compile(g.wrap_code(code))
             if compiles:
-                print code
+                print g.prettify(code.replace(';', ";\n"))
                 break
     except Exception as e:
-        print e
+        pass
