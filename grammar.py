@@ -1,16 +1,34 @@
 import os
 import re
 import subprocess
+import configparser
 import random
 from random import randint
 
 class Grammar:
 
     def __init__(self):
-        self.S = 'S'
-        self.MAX_ITERS = 100
-        self.PROB_DECAY = 2
-        self.PROB_DEFAULT = 5
+        self.DEBUG = False
+        self.CONFIG_FILE = '291.cnf'
+        self.config = configparser.ConfigParser()
+        if not os.path.exists(self.CONFIG_FILE):
+            self.config.set('DEFAULT', 'S', 'S')
+            self.config.set('DEFAULT', 'MAX_BLANKS', '10')
+            self.config.set('DEFAULT', 'MAX_ITERS', '100')
+            self.config.set('DEFAULT', 'PROB_DECAY', '2')
+            self.config.set('DEFAULT', 'PROB_DEFAULT', '5')
+            self.config.set('DEFAULT', 'PRETTIFIER_PATH', '/opt/local/bin/uncrustify')
+            with open(self.CONFIG_FILE, 'w') as out:
+                self.config.write(out)
+                out.close()
+        else:
+            self.config.read(self.CONFIG_FILE)
+        self.S = self.config.get('DEFAULT', 'S')
+        self.MAX_BLANKS = int(self.config.get('DEFAULT', 'MAX_BLANKS'))
+        self.MAX_ITERS = int(self.config.get('DEFAULT', 'MAX_ITERS'))
+        self.PROB_DECAY = int(self.config.get('DEFAULT', 'PROB_DECAY'))
+        self.PROB_DEFAULT = int(self.config.get('DEFAULT', 'PROB_DEFAULT'))
+        self.PRETTIFIER_PATH = self.config.get('DEFAULT', 'PRETTIFIER_PATH')
         self.g = {}
         self.symbols = {}
         self.source = None
@@ -58,10 +76,9 @@ class Grammar:
             #head = line.split('#')
             # Use this for multiple delimiters
             head = re.split('#|@',line)
-            print head
-            #exit(0)
+            if self.DEBUG:
+                print head
             
-
             # If it is >2 then we are doing probability productions
             if(len(head) > 2):
                 # Grab the concept ID here
@@ -82,18 +99,17 @@ class Grammar:
                 self.g[nterm] = []
             prods = tok[1].split('|')
             for p in prods:
-                print prods
-
-
+                if self.DEBUG:
+                    print prods
                 ##print p
                 w = p.split('?')
-                print len(w)
+                if self.DEBUG:
+                    print len(w)
                 ## This means we have a production specific weight
                 if(len(w) > 1):
                     # The production weight
                     prod_dist = int(w[1])
                     p = w[0]
-
 
                 vars = re.findall("[A-Z][a-z]*", p)
                 sanitized = p
@@ -101,8 +117,8 @@ class Grammar:
                 for v in vars:
                     sanitized = sanitized.replace(v, "<%s>" % v)
                 self.g[nterm].append({ 'prod': sanitized.strip(), 'id': id, 'prod_dist': prod_dist })
-                print self.g[nterm]
-            #exit(0)
+                if self.DEBUG:
+                    print self.g[nterm]
 
     def get_vars(self, snippet):
         vars = re.findall("<[A-Z][a-z]*>", snippet)
@@ -118,17 +134,16 @@ class Grammar:
         while iter < self.MAX_ITERS:
             iter = iter + 1
             nterm = self.get_vars(code)
-            print "nterm is"
-            print nterm
+            if self.DEBUG:
+                print "nterm is", nterm
             if len(nterm) == 0:
                 break
             nterm = nterm[0]
-            #print "nterm:", nterm
             prod = self.__getitem__(nterm)
-            #print prod
             if prod is None:
                 raise Exception("Grammar is incomplete. '%s' has no production." % nterm)
-            print prod
+            if self.DEBUG:
+                print prod
 
 #########Weight Selection#####################################
             freq_list = []
@@ -139,11 +154,12 @@ class Grammar:
                     continue
                 for i in range(0,prod[prod_index]['prod_dist']):
                     freq_list.append(prod_index)
-           
-            print "prod_dist->" 
-            print prod[prod_index]['prod_dist'] 
-            print "freq_list->" 
-            print freq_list
+
+            if self.DEBUG:
+                print "prod_dist->" 
+                print prod[prod_index]['prod_dist'] 
+                print "freq_list->" 
+                print freq_list
             #prod_index = randint(0,len(freq_list) - 1)
 
 
@@ -170,11 +186,13 @@ class Grammar:
 
 ##############################################
             rand_int = randint(0, len(freq_list) - 1)
-            print rand_int
+            if self.DEBUG:
+                print rand_int
 
             prod_index = freq_list[rand_int]
-            print "Prod index is -> "
-            print prod_index
+            if self.DEBUG:
+                print "Prod index is -> "
+                print prod_index
 
             #prod = prod[ randint(0, len(prod) - 1) ]
             prod = prod[prod_index]
@@ -182,23 +200,24 @@ class Grammar:
             if prod['id'] in concepts and not concepts[prod['id']]:
                 continue
             code = code.replace("<%s>" % nterm, prod['prod'], 1)
-            print "code is"
-            print code
+            if self.DEBUG:
+                print "code is"
+                print code
         code = code.replace('nil', '')
         return code
 
-    def add_blanks(self, code, concepts, max_blanks):
+    def add_blanks(self, code, concepts):
         ctoks = re.findall("[a-z%;]+", code)
         ctokmap = {}
         for tok in ctoks:
             ctokmap[tok] = True
         count = 0
-        for i in range(0, max_blanks):
+        for i in range(0, self.MAX_BLANKS):
             if randint(0, 100) % 5 == 0:
                 for s in self.symbols:
                     code = code.replace(s, ' _FILL_ ', 1)
                     count = count + 1
-                    if count >= max_blanks:
+                    if count >= self.MAX_BLANKS:
                         return code
         for nterm in self.g:
             for prod in self.g[nterm]:
@@ -208,7 +227,7 @@ class Grammar:
                         if tok in ctokmap:
                             code = code.replace(tok, ' _FILL_ ', 1)
                             count = count + 1
-                            if count >= max_blanks:
+                            if count >= self.MAX_BLANKS:
                                 return code
         return code
 
@@ -233,12 +252,28 @@ class Grammar:
             out.write("\n".join(["#include <stdio.h>", "", self.wrap_code(code)]))
             out.close()
             try:
-                result = subprocess.check_output(['/usr/bin/uncrustify', '-c', "%s/ben.cfg.txt" % os.getcwd(), '-f', "%s/code.c" % os.getcwd()])
+                result = subprocess.check_output([self.PRETTIFIER_PATH, '-c', "%s/ben.cfg.txt" % os.getcwd(), '-f', "%s/code.c" % os.getcwd()])
                 return result
             except Exception as e:
                 print e
                 return None
         return None
+
+    def generate_problem(self, concepts):
+        source = None
+        while True:
+            try:
+                code = g.generate(concepts).strip()
+                whole = len(g.get_vars(code)) == 0
+                if code != '' and whole:
+                    compiles = g.compile(g.wrap_code(code))
+                    if compiles:
+                        source = g.prettify(code.replace(';', ";\n"))
+                        break
+            except:
+                pass
+        problem = g.add_blanks(source, concepts)
+        return { 'code': source, 'problem': problem }
 
 # TEST CODE
 
@@ -250,19 +285,8 @@ concepts = {
     4: True
 }
 
-source = None
-while True:
-    try:
-        code = g.generate(concepts).strip()
-        whole = len(g.get_vars(code)) == 0
-        if code != '' and whole:
-            compiles = g.compile(g.wrap_code(code))
-            if compiles:
-                source = g.prettify(code.replace(';', ";\n"))
-                print source
-                break
-    except Exception as e:
-        print e
-
-problem = g.add_blanks(source, concepts, 10)
-print problem
+result = g.generate_problem(concepts)
+print "[ORIGINAL]"
+print result['code']
+print "[WITH_BLANKS]"
+print result['problem']
